@@ -169,7 +169,7 @@ impl Unit for ServiceUnit {
     }
 
     fn run(&mut self) -> Result<(), RuntimeError> {
-        self.exec()
+        unsafe {self.exec()}
     }
 
     fn unit_base_mut(&mut self) -> &mut BaseUnit {
@@ -177,7 +177,7 @@ impl Unit for ServiceUnit {
     }
 
     fn after_exit(&mut self, exit_status: ExitStatus) {
-        ServiceExecutor::after_exit(self, exit_status);
+        unsafe {ServiceExecutor::after_exit(self, exit_status)};
     }
 
     fn init(&mut self) {
@@ -216,7 +216,7 @@ impl Unit for ServiceUnit {
     }
 
     fn restart(&mut self) -> Result<(), RuntimeError> {
-        return ServiceExecutor::restart(self);
+        return unsafe {ServiceExecutor::restart(self)};
     }
 }
 
@@ -233,7 +233,7 @@ impl ServiceUnit {
         return &mut self.service_part;
     }
 
-    fn exec(&mut self) -> Result<(), RuntimeError> {
+    unsafe fn exec(&mut self) -> Result<(), RuntimeError> {
         let _ = ServiceExecutor::exec(self);
         Ok(())
     }
