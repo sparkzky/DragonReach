@@ -1,4 +1,5 @@
 use std::{
+    os::unix::process::CommandExt,
     process::{Command, Stdio},
     time::Duration,
 };
@@ -19,7 +20,7 @@ pub struct ServiceExecutor;
 
 impl ServiceExecutor {
     /// ## Service执行器
-    pub fn exec(service: &mut ServiceUnit) -> Result<(), RuntimeError> {
+    pub unsafe fn exec(service: &mut ServiceUnit) -> Result<(), RuntimeError> {
         // 通过服务启动类型分发
         match *service.service_part().service_type() {
             ServiceType::Simple => return Self::exec_simple(service),
@@ -31,7 +32,7 @@ impl ServiceExecutor {
         };
     }
 
-    pub fn exec_simple(service: &mut ServiceUnit) -> Result<(), RuntimeError> {
+    pub unsafe fn exec_simple(service: &mut ServiceUnit) -> Result<(), RuntimeError> {
         //处理conflict
         let conflicts = service.unit_base().unit_part().conflicts();
         for u in conflicts {
@@ -64,6 +65,12 @@ impl ServiceExecutor {
             .stderr(Stdio::inherit())
             .stdout(Stdio::inherit())
             .stdin(Stdio::inherit())
+            .pre_exec(|| {
+                unsafe {
+                    libc::setsid();
+                }
+                Ok(())
+            })
             .spawn();
 
         match proc {
@@ -151,7 +158,7 @@ impl ServiceExecutor {
     }
 
     /// ## 服务退出执行的逻辑(包括自然退出及显式退出)
-    pub fn after_exit(service: &mut ServiceUnit, exit_status: ExitStatus) {
+    pub unsafe fn after_exit(service: &mut ServiceUnit, exit_status: ExitStatus) {
         //TODO: 需要考虑是否需要在此处执行退出后代码，还是只需要显式退出时才执行
         let _ = Self::exec_stop_post(service);
 
@@ -189,7 +196,7 @@ impl ServiceExecutor {
     }
 
     /// ## 重启Service
-    pub fn restart(service: &mut ServiceUnit) -> Result<(), RuntimeError> {
+    pub unsafe fn restart(service: &mut ServiceUnit) -> Result<(), RuntimeError> {
         let ns = service.service_part().restart_sec();
         let binds = service.unit_base().unit_part().be_binded_by();
         let binds = Vec::from(binds);
