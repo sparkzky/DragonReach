@@ -1,8 +1,11 @@
 use std::{
-    os::unix::process::CommandExt,
+    fs::OpenOptions,
+    os::{fd::AsRawFd, unix::process::CommandExt},
     process::{Command, Stdio},
     time::Duration,
 };
+
+use libc::{c_int, TIOCSCTTY};
 
 use crate::{
     error::runtime_error::{RuntimeError, RuntimeErrorType},
@@ -68,6 +71,22 @@ impl ServiceExecutor {
             .pre_exec(|| {
                 unsafe {
                     libc::setsid();
+                    let tty = OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .open("/dev/ttyS0")?; // 根据实际设备修改
+
+                    let fd = tty.as_raw_fd();
+                    libc::ioctl(fd, TIOCSCTTY as libc::c_ulong);
+
+                    // // 4. 可选：设置为前台进程组（如果你希望主动设置）
+                    // let pgid = libc::getpgrp();
+                    // if libc::tcsetpgrp(fd, pgid) < 0 {
+                    //     return Err(std::io::Error::last_os_error());
+                    // }
+
+                    // // 5. 可选：关闭 tty fd（已经设置好了）
+                    // libc::close(fd);
                 }
                 Ok(())
             })
