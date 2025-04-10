@@ -77,7 +77,7 @@ impl ServiceExecutor {
                         .open("/dev/ttyS0")?; // 根据实际设备修改
 
                     let fd = tty.as_raw_fd();
-                    libc::ioctl(fd, TIOCSCTTY as libc::c_ulong);
+                    libc::ioctl(fd, (TIOCSCTTY as libc::c_ulong).try_into().unwrap());
 
                     // // 4. 可选：设置为前台进程组（如果你希望主动设置）
                     // let pgid = libc::getpgrp();
