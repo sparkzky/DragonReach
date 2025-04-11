@@ -1,4 +1,5 @@
 use std::{
+    os::unix::process::CommandExt,
     process::{Command, Stdio},
     time::Duration,
 };
@@ -49,6 +50,7 @@ impl ServiceExecutor {
 
         //获取启动命令
         let exec_start = service.service_part().exec_start();
+        let is_shell = service.unit_base().unit_part().description() == "Shell";
 
         //TODO:设置uid与gid
 
@@ -57,15 +59,27 @@ impl ServiceExecutor {
 
         //创建服务进程
         //服务配置环境变量，配置工作目录
-        let proc = Command::new(&exec_start.path)
-            .args(&exec_start.cmd)
-            .current_dir(service.service_part().working_directory())
-            .envs(Vec::from(service.service_part().environment()))
-            .stderr(Stdio::inherit())
-            .stdout(Stdio::inherit())
-            .stdin(Stdio::inherit())
-            .spawn();
+        let proc;
+        unsafe {
+            let pre_exec_fn = if is_shell {
+                || -> std::io::Result<()> {
+                    libc::setsid();
+                    Ok(())
+                }
+            } else {
+                || -> std::io::Result<()> { Ok(()) }
+            };
 
+            proc = Command::new(&exec_start.path)
+                .args(&exec_start.cmd)
+                .current_dir(service.service_part().working_directory())
+                .envs(Vec::from(service.service_part().environment()))
+                .stderr(Stdio::inherit())
+                .stdout(Stdio::inherit())
+                .stdin(Stdio::inherit())
+                .pre_exec(pre_exec_fn)
+                .spawn();
+        }
         match proc {
             Ok(p) => {
                 // TODO: 打日志
