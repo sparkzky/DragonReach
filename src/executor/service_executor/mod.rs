@@ -64,6 +64,12 @@ impl ServiceExecutor {
             let pre_exec_fn = if is_shell {
                 || -> std::io::Result<()> {
                     libc::setsid();
+                    let tty = std::fs::OpenOptions::new()
+                        .read(true)
+                        .write(true)
+                        .open("/dev/ttyS0")?; // 根据实际设备修改
+                    let fd = std::os::fd::AsRawFd::as_raw_fd(&tty);
+                    libc::ioctl(fd, (libc::TIOCSCTTY as libc::c_ulong).try_into().unwrap());
                     Ok(())
                 }
             } else {
